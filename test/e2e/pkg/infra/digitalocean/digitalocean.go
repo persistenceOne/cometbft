@@ -64,9 +64,9 @@ func (p Provider) writePlaybook(yaml string, starting bool) error {
 // file as bytes to be written out to disk.
 // ansibleStartBytes generates an Ansible playbook to start the network
 func ansibleSystemdBytes(starting bool) string {
-	startTxt := "stopped"
+	startStop := "stopped"
 	if starting {
-		startTxt = "started"
+		startStop = "started"
 	}
 	playbook := fmt.Sprintf(`- name: start testapp
   hosts: all
@@ -79,7 +79,7 @@ func ansibleSystemdBytes(starting bool) string {
     ansible.builtin.systemd:
       name: testappd
       state: %s
-      enabled: yes`, startTxt)
+      enabled: yes`, startStop)
 	return playbook
 }
 
