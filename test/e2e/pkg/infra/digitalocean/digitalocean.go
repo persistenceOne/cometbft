@@ -51,7 +51,7 @@ func (p Provider) StopTestnet(ctx context.Context) error {
 }
 
 func (p Provider) writePlaybook(yaml string, starting bool) error {
-	playbook := ansibleSystemdBytes(true)
+	playbook := ansibleSystemdBytes(starting)
 	//nolint: gosec
 	// G306: Expect WriteFile permissions to be 0600 or less
 	err := os.WriteFile(filepath.Join(p.Testnet.Dir, yaml), []byte(playbook), 0o644)
@@ -68,7 +68,7 @@ func ansibleSystemdBytes(starting bool) string {
 	if starting {
 		startStop = "started"
 	}
-	playbook := fmt.Sprintf(`- name: start testapp
+	playbook := fmt.Sprintf(`- name: start/stop testapp
   hosts: all
   gather_facts: yes
   vars:
