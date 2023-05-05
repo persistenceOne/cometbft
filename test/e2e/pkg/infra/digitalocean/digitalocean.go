@@ -32,7 +32,7 @@ func (p Provider) StartNodes(ctx context.Context, nodes ...*e2e.Node) error {
 	for i, n := range nodes {
 		nodeIPs[i] = n.ExternalIP.String()
 	}
-	if err := p.writePlaybook(ymlSystemd); err != nil {
+	if err := p.writePlaybook(ymlSystemd, true); err != nil {
 		return err
 	}
 
@@ -44,13 +44,13 @@ func (p Provider) StopTestnet(ctx context.Context) error {
 		nodeIPs[i] = n.ExternalIP.String()
 	}
 
-	if err := p.writePlaybook(ymlSystemd); err != nil {
+	if err := p.writePlaybook(ymlSystemd, false); err != nil {
 		return err
 	}
 	return execAnsible(ctx, p.Testnet.Dir, ymlSystemd, nodeIPs)
 }
 
-func (p Provider) writePlaybook(yaml string) error {
+func (p Provider) writePlaybook(yaml string, starting bool) error {
 	playbook := ansibleSystemdBytes(true)
 	//nolint: gosec
 	// G306: Expect WriteFile permissions to be 0600 or less
@@ -63,9 +63,9 @@ func (p Provider) writePlaybook(yaml string) error {
 
 // file as bytes to be written out to disk.
 // ansibleStartBytes generates an Ansible playbook to start the network
-func ansibleSystemdBytes(start bool) string {
+func ansibleSystemdBytes(starting bool) string {
 	startTxt := "stopped"
-	if start {
+	if starting {
 		startTxt = "started"
 	}
 	playbook := fmt.Sprintf(`- name: start testapp
