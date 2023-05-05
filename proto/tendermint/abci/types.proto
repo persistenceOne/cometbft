@@ -91,14 +91,19 @@ message RequestQuery {
   bool   prove  = 4;
 }
 
+//Reject
+//Reject
 enum CheckTxType {
-  NEW     = 0 [(gogoproto.enumvalue_customname) = "New"];
-  RECHECK = 1 [(gogoproto.enumvalue_customname) = "Recheck"];
+  UNSPECIFIED = 0;
+  RECHECK     = 1 [(gogoproto.enumvalue_customname) = "Recheck"];
+  CHECK       = 2 [(gogoproto.enumvalue_customname) = "Check"];
 }
 
 message RequestCheckTx {
   bytes       tx   = 1;
-  CheckTxType type = 2;
+  CheckTxType type = 3;
+
+  reserved 2;
 }
 
 message RequestCommit {}

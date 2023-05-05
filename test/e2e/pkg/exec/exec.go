@@ -9,6 +9,7 @@ import (
 
 // Command executes a shell command.
 func Command(ctx context.Context, args ...string) error {
+	fmt.Println("COMMAND:", args)
 	_, err := CommandOutput(ctx, args...)
 	return err
 }
@@ -31,6 +32,7 @@ func CommandOutput(ctx context.Context, args ...string) ([]byte, error) {
 
 // CommandVerbose executes a shell command while displaying its output.
 func CommandVerbose(ctx context.Context, args ...string) error {
+	fmt.Println("COMMAND_VERBOSE:", args)
 	//nolint: gosec
 	// G204: Subprocess launched with a potential tainted input or cmd arguments
 	cmd := osexec.CommandContext(ctx, args[0], args[1:]...)
