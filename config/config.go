@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/graphprotocol/extractor-cosmos"
 )
 
 const (
@@ -83,6 +85,7 @@ type Config struct {
 	Storage                  *StorageConfig              `mapstructure:"storage"`
 	TxIndex                  *TxIndexConfig              `mapstructure:"tx_index"`
 	Instrumentation          *InstrumentationConfig      `mapstructure:"instrumentation"`
+	Extractor                *extractor.Config           `mapstructure:"extractor"`
 }
 
 // DefaultConfig returns a default configuration for a CometBFT node
@@ -98,6 +101,7 @@ func DefaultConfig() *Config {
 		Storage:         DefaultStorageConfig(),
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
+		Extractor:       extractor.DefaultConfig(),
 	}
 }
 
@@ -114,6 +118,7 @@ func TestConfig() *Config {
 		Storage:         TestStorageConfig(),
 		TxIndex:         TestTxIndexConfig(),
 		Instrumentation: TestInstrumentationConfig(),
+		Extractor:       extractor.DefaultConfig(),
 	}
 }
 
@@ -124,6 +129,7 @@ func (cfg *Config) SetRoot(root string) *Config {
 	cfg.P2P.RootDir = root
 	cfg.Mempool.RootDir = root
 	cfg.Consensus.RootDir = root
+	cfg.Extractor.RootDir = root
 	return cfg
 }
 
@@ -156,6 +162,9 @@ func (cfg *Config) ValidateBasic() error {
 	}
 	if !cfg.Consensus.CreateEmptyBlocks && cfg.Mempool.Type == MempoolTypeNop {
 		return fmt.Errorf("`nop` mempool does not support create_empty_blocks = false")
+	}
+	if err := cfg.Extractor.Validate(); err != nil {
+		return fmt.Errorf("error in [extractor] section: %w", err)
 	}
 	return nil
 }
