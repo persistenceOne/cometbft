@@ -77,7 +77,7 @@ func encodeTx(result *abci.TxResult) ([]byte, error) {
 		Result: &pbcosmos.ResponseDeliverTx{
 			Code:      result.Result.Code,
 			Data:      result.Result.Data,
-			Log:       result.Result.Log,
+			Log:       string([]rune(result.Result.Log)),
 			Info:      result.Result.Info,
 			GasWanted: result.Result.GasWanted,
 			GasUsed:   result.Result.GasUsed,
