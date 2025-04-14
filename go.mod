@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/orderedcode v0.0.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/graphprotocol/proto-cosmos v0.1.0
+	github.com/graphprotocol/proto-cosmos v0.1.4
 	github.com/informalsystems/tm-load-test v1.3.0
 	github.com/lib/pq v1.10.9
 	github.com/minio/highwayhash v1.0.3
