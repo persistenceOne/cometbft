@@ -8,6 +8,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cryptoenc "github.com/cometbft/cometbft/crypto/encoding"
+	"github.com/cometbft/cometbft/deepmind"
 	"github.com/cometbft/cometbft/libs/fail"
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/mempool"
@@ -671,54 +672,111 @@ func fireEvents(
 	abciResponse *abci.ResponseFinalizeBlock,
 	validatorUpdates []*types.Validator,
 ) {
-	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
+	// NOTE: abciResponse has TxResults, Events, ValidatorUpdates, ConsensusParamUpdates, AppHash
+	// The ResultBeginBlock and ResultEndBlock fields from the reference commit are not directly
+	// available here as they are part of the old ABCIResponses struct.
+	// We adapt by using the available fields from ResponseFinalizeBlock where applicable.
+
+	blockData := types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
 		ResultFinalizeBlock: *abciResponse,
-	}); err != nil {
-		logger.Error("failed publishing new block", "err", err)
 	}
 
-	if err := eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
+	headerData := types.EventDataNewBlockHeader{
 		Header: block.Header,
-	}); err != nil {
+		// NumTxs is implicitly available via block.Txs, but not directly part of the event data struct
+		// We add it for deepmind logging.
+		// ResultBegin/EndBlock are not available.
+	}
+	numTxs := int64(len(block.Txs))
+
+	if err := deepmind.BeginBlock(block.Height); err != nil {
+		logger.Error("dmlog begin block write failed", "err", err)
+		deepmind.Abort(err)
+	}
+
+	defer func() {
+		if err := deepmind.FinalizeBlock(block.Height); err != nil {
+			logger.Error("dmlog end block write failed", "err", err)
+			deepmind.Abort(err)
+		}
+		logger.Info("finalized dmlog block", "block", block.Height, "module", "deepmind")
+	}()
+
+	// Adapt AddBlockData call: Pass blockData which includes ResultFinalizeBlock
+	if err := deepmind.AddBlockData(blockData); err != nil {
+		logger.Error("dmlog block write failed", "err", err)
+		deepmind.Abort(err)
+	}
+
+	if err := eventBus.PublishEventNewBlock(blockData); err != nil {
+		logger.Error("failed publishing new block", "err", err)
+		// Potentially deepmind.Abort(err) here too, depending on desired behavior
+	}
+
+	// Pass the existing headerData directly.
+	if err := deepmind.AddBlockHeaderData(headerData); err != nil {
+		logger.Error("dmlog header write failed", "err", err)
+		deepmind.Abort(err)
+	}
+
+	if err := eventBus.PublishEventNewBlockHeader(headerData); err != nil {
 		logger.Error("failed publishing new block header", "err", err)
+		// Potentially deepmind.Abort(err) here too
 	}
 
 	if err := eventBus.PublishEventNewBlockEvents(types.EventDataNewBlockEvents{
 		Height: block.Height,
 		Events: abciResponse.Events,
-		NumTxs: int64(len(block.Txs)),
+		NumTxs: numTxs,
 	}); err != nil {
 		logger.Error("failed publishing new block events", "err", err)
 	}
 
 	if len(block.Evidence.Evidence) != 0 {
 		for _, ev := range block.Evidence.Evidence {
-			if err := eventBus.PublishEventNewEvidence(types.EventDataNewEvidence{
+			evData := types.EventDataNewEvidence{
 				Evidence: ev,
 				Height:   block.Height,
-			}); err != nil {
+			}
+			if err := deepmind.AddEvidenceData(evData); err != nil {
+				logger.Error("dmlog evidence write failed", "err", err)
+				deepmind.Abort(err)
+			}
+			if err := eventBus.PublishEventNewEvidence(evData); err != nil {
 				logger.Error("failed publishing new evidence", "err", err)
+				// Potentially deepmind.Abort(err) here too
 			}
 		}
 	}
 
 	for i, tx := range block.Data.Txs {
-		if err := eventBus.PublishEventTx(types.EventDataTx{TxResult: abci.TxResult{
+		txData := types.EventDataTx{TxResult: abci.TxResult{
 			Height: block.Height,
 			Index:  uint32(i),
 			Tx:     tx,
 			Result: *(abciResponse.TxResults[i]),
-		}}); err != nil {
+		}}
+		if err := deepmind.AddTransactionData(txData); err != nil {
+			logger.Error("dmlog tx write failed", "err", err)
+			deepmind.Abort(err)
+		}
+		if err := eventBus.PublishEventTx(txData); err != nil {
 			logger.Error("failed publishing event TX", "err", err)
+			// Potentially deepmind.Abort(err) here too
 		}
 	}
 
 	if len(validatorUpdates) > 0 {
-		if err := eventBus.PublishEventValidatorSetUpdates(
-			types.EventDataValidatorSetUpdates{ValidatorUpdates: validatorUpdates}); err != nil {
+		valSetData := types.EventDataValidatorSetUpdates{ValidatorUpdates: validatorUpdates}
+		if err := deepmind.AddValidatorSetUpdatesData(valSetData); err != nil {
+			logger.Error("dmlog validator set update write failed", "err", err)
+			deepmind.Abort(err)
+		}
+		if err := eventBus.PublishEventValidatorSetUpdates(valSetData); err != nil {
 			logger.Error("failed publishing event", "err", err)
+			// Potentially deepmind.Abort(err) here too
 		}
 	}
 }
